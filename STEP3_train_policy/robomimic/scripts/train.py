@@ -132,33 +132,6 @@ def train(config, device, auto_remove_exp=False, resume=None):
         verbose=True
     )
 
-    # if config.experiment.env is not None:
-    #     env_meta["env_name"] = config.experiment.env
-    #     print("=" * 30 + "\n" + "Replacing Env to {}\n".format(env_meta["env_name"]) + "=" * 30)
-    #
-    # # create environment
-    # envs = OrderedDict()
-    # if config.experiment.rollout.enabled:
-    #     # create environments for validation runs
-    #     env_names = [env_meta["env_name"]]
-    #
-    #     if config.experiment.additional_envs is not None:
-    #         for name in config.experiment.additional_envs:
-    #             env_names.append(name)
-    #
-    #     for env_name in env_names:
-    #         env = EnvUtils.create_env_from_metadata(
-    #             env_meta=env_meta,
-    #             env_name=env_name,
-    #             render=config.experiment.render,
-    #             render_offscreen=config.experiment.render_video,
-    #             use_image_obs=shape_meta["use_images"],
-    #             use_depth_obs=shape_meta["use_depths"],
-    #         )
-    #         env = EnvUtils.wrap_env_from_config(env, config=config) # apply environment warpper, if applicable
-    #         envs[env.name] = env
-    #         print(envs[env.name])
-
     print("")
 
     # setup for a new training run
@@ -323,58 +296,6 @@ def train(config, device, auto_remove_exp=False, resume=None):
         video_paths = None
         rollout_check = (epoch % config.experiment.rollout.rate == 0) or (should_save_ckpt and ckpt_reason == "time")
         did_rollouts = False
-        # if config.experiment.rollout.enabled and (epoch > config.experiment.rollout.warmstart) and rollout_check:
-        #
-        #     # wrap model as a RolloutPolicy to prepare for rollouts
-        #     rollout_model = RolloutPolicy(
-        #         model,
-        #         obs_normalization_stats=obs_normalization_stats,
-        #         action_normalization_stats=action_normalization_stats,
-        #     )
-        #
-        #     num_episodes = config.experiment.rollout.n
-        #     all_rollout_logs, video_paths = TrainUtils.rollout_with_stats(
-        #         policy=rollout_model,
-        #         envs=envs,
-        #         horizon=config.experiment.rollout.horizon,
-        #         use_goals=config.use_goals,
-        #         num_episodes=num_episodes,
-        #         render=False,
-        #         video_dir=video_dir if config.experiment.render_video else None,
-        #         epoch=epoch,
-        #         video_skip=config.experiment.get("video_skip", 5),
-        #         terminate_on_success=config.experiment.rollout.terminate_on_success,
-        #     )
-        #
-        #     # summarize results from rollouts to tensorboard and terminal
-        #     for env_name in all_rollout_logs:
-        #         rollout_logs = all_rollout_logs[env_name]
-        #         for k, v in rollout_logs.items():
-        #             if k.startswith("Time_"):
-        #                 data_logger.record("Timing_Stats/Rollout_{}_{}".format(env_name, k[5:]), v, epoch)
-        #             else:
-        #                 data_logger.record("Rollout/{}/{}".format(k, env_name), v, epoch, log_stats=True)
-        #
-        #         print("\nEpoch {} Rollouts took {}s (avg) with results:".format(epoch, rollout_logs["time"]))
-        #         print('Env: {}'.format(env_name))
-        #         print(json.dumps(rollout_logs, sort_keys=True, indent=4))
-        #
-        #     # checkpoint and video saving logic
-        #     updated_stats = TrainUtils.should_save_from_rollout_logs(
-        #         all_rollout_logs=all_rollout_logs,
-        #         best_return=best_return,
-        #         best_success_rate=best_success_rate,
-        #         epoch_ckpt_name=epoch_ckpt_name,
-        #         save_on_best_rollout_return=config.experiment.save.on_best_rollout_return,
-        #         save_on_best_rollout_success_rate=config.experiment.save.on_best_rollout_success_rate,
-        #     )
-        #     best_return = updated_stats["best_return"]
-        #     best_success_rate = updated_stats["best_success_rate"]
-        #     epoch_ckpt_name = updated_stats["epoch_ckpt_name"]
-        #     should_save_ckpt = (config.experiment.save.enabled and updated_stats["should_save_ckpt"]) or should_save_ckpt
-        #     if updated_stats["ckpt_reason"] is not None:
-        #         ckpt_reason = updated_stats["ckpt_reason"]
-        #     did_rollouts = True
 
         # Only keep saved videos if the ckpt should be saved (but not because of validation score)
         should_save_video = (should_save_ckpt and (ckpt_reason != "valid")) or config.experiment.keep_all_videos

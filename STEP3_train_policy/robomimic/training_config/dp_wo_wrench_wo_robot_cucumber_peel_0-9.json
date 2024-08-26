@@ -1,7 +1,7 @@
 {
     "algo_name": "diffusion_policy",
     "experiment": {
-        "name": "diffusion_policy_pcd_packaging_1-20",
+        "name": "dp_wo_wrench_wo_robot_cucumber_peel_0-9",
         "validate": false,
         "logging": {
             "terminal_output_to_txt": true,
@@ -18,7 +18,7 @@
             "on_best_rollout_return": false,
             "on_best_rollout_success_rate": true
         },
-        "epoch_every_n_steps": 500,
+        "epoch_every_n_steps": 1500,
         "validation_epoch_every_n_steps": 50,
         "env": null,
         "additional_envs": null,
@@ -45,11 +45,11 @@
     "train": {
         "data": [
             {
-                "path": "/mnt/data/data/DexCap-Data/hand_packaging_wild_1-20_5actiongap_10000points.hdf5"
+                "path": "/mnt/data/data/peel_data/peel_data_1/cucumber_peel_0-9_10000.hdf5"
             }
         ],
         "output_dir": "trained_models",
-        "num_data_workers": 2,
+        "num_data_workers": 1,
         "hdf5_cache_mode": null,
         "hdf5_use_swmr": true,
         "hdf5_load_next_obs": false,
@@ -61,15 +61,15 @@
         "frame_stack": 1,
         "pad_frame_stack": true,
         "dataset_keys": [
-            "actions",
+            "action_without_wrench",
             "rewards",
             "dones"
         ],
         "action_keys": [
-            "actions"
+            "action_without_wrench"
         ],
         "action_config": {
-            "actions": {
+            "action_without_wrench": {
                 "normalization": "min_max"
             },
             "action_dict/abs_pos": {
@@ -100,8 +100,8 @@
         },
         "goal_mode": null,
         "cuda": true,
-        "batch_size": 16,
-        "num_epochs": 3000,
+        "batch_size": 32,
+        "num_epochs": 1000,
         "seed": 1,
         "data_format": "robomimic"
     },
@@ -161,9 +161,6 @@
         "modalities": {
             "obs": {
                 "low_dim": [
-                    "robot0_eef_pos",
-                    "robot0_eef_quat",
-                    "robot0_eef_hand",
                     "pointcloud"
                 ],
                 "rgb": [

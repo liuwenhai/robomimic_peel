@@ -485,7 +485,13 @@ class SequenceDataset(torch.utils.data.Dataset):
                 prefix="next_obs",
             )
             meta["goal_obs"] = {k: goal[k][0] for k in goal}  # remove sequence dimension for goal
-
+        meta = self._augmentation_pose(meta)
+        # np.savez('file.npz',robot0_eef_pos=meta['obs']['robot0_eef_pos'],
+        #          robot0_eef_quat=meta['obs']['robot0_eef_quat'],
+        #          robot0_eef_wrench=meta['obs']['robot0_eef_wrench'],
+        #          pointcloud=meta['obs']['pointcloud'],
+        #          action_with_wrench=meta['action_with_wrench'])
+        # import pdb;pdb.set_trace()
         # get action components
         ac_dict = OrderedDict()
         for k in self.action_keys:
@@ -501,9 +507,63 @@ class SequenceDataset(torch.utils.data.Dataset):
 
         # concatenate all action components
         meta["actions"] = AcUtils.action_dict_to_vector(ac_dict)
+        # import pdb;pdb.set_trace()
 
         # also return the sampled index
         meta["index"] = index
+
+        return meta
+
+    def _random_pose(self, x_min=-0.05, x_max=0.05, y_min=-0.04, y_max=0.04, z_min=-0.04, z_max=0.05, z_theta_min=-np.pi / 4,z_theta_max=np.pi / 4):
+        from scipy.spatial.transform import Rotation as Rot
+        x_trans = np.random.uniform(x_min, x_max)
+        y_trans = np.random.uniform(y_min, y_max)
+        z_trans = np.random.uniform(z_min, z_max)
+        z_theta = np.random.uniform(z_theta_min, z_theta_max)
+        rot = Rot.from_euler('XYZ', np.array([0, 0, z_theta])).as_matrix()
+        random_pose = np.identity(4)
+        random_pose[:3, :3] = rot
+        random_pose[:3, 3] = np.array([x_trans, y_trans, z_trans])
+
+        L515_2_BASE = np.array([[1, 0, 0, 0],
+                                [0, -np.sin(70 / 180 * np.pi), np.cos(70 / 180 * np.pi), 0],
+                                [0, -np.cos(70 / 180 * np.pi), -np.sin(70 / 180 * np.pi), 0.59],
+                                [0, 0, 0, 1]])
+        l5152base = deepcopy(L515_2_BASE)
+        l5152base[1, 3] = -0.25
+        transform_pose = np.linalg.inv(l5152base) @ random_pose @ l5152base
+        return transform_pose
+
+
+    def _augmentation_pose(self, meta):
+        '''
+        Augmentation pose
+        Args:
+            meta:
+        Returns:
+        '''
+        from scipy.spatial.transform import Rotation as Rot
+        pose = self._random_pose()
+
+        if 'robot0_eef_pos' in meta['obs'].keys():
+            meta['obs']['robot0_eef_pos'][:,:3] = meta['obs']['robot0_eef_pos'][:,:3] @ pose[:3,:3].T + pose[:3,3].reshape(1,3)
+            meta['obs']['robot0_eef_pos'][:,3:] = meta['obs']['robot0_eef_pos'][:,3:] @ pose[:3,:3].T + pose[:3,3].reshape(1,3)
+        if 'robot0_eef_quat' in meta['obs'].keys():
+            meta['obs']['robot0_eef_quat'][:,:4] = Rot.from_matrix(pose[:3,:3] @ Rot.from_quat(meta['obs']['robot0_eef_quat'][:,:4]).as_matrix()).as_quat()
+            meta['obs']['robot0_eef_quat'][:,4:] = Rot.from_matrix(pose[:3,:3] @ Rot.from_quat(meta['obs']['robot0_eef_quat'][:,4:]).as_matrix()).as_quat()
+        if 'pointcloud' in meta['obs'].keys():
+            meta['obs']['pointcloud'][:,:,:3] = meta['obs']['pointcloud'][:,:,:3] @ pose[:3,:3].T + pose[:3,3].reshape(1,3)
+
+        if 'action_with_wrench' in meta.keys():
+            meta['action_with_wrench'][:,:3] = meta['action_with_wrench'][:,:3] @ pose[:3,:3].T + pose[:3,3].reshape(1,3)
+            meta['action_with_wrench'][:,3:6] = meta['action_with_wrench'][:,3:6] @ pose[:3,:3].T + pose[:3,3].reshape(1,3)
+            meta['action_with_wrench'][:,6:10] = Rot.from_matrix(pose[:3,:3] @ Rot.from_quat(meta['action_with_wrench'][:,6:10]).as_matrix()).as_quat()
+            meta['action_with_wrench'][:, 10:14] = Rot.from_matrix(pose[:3, :3] @ Rot.from_quat(meta['action_with_wrench'][:, 10:14]).as_matrix()).as_quat()
+        if 'action_without_wrench' in meta.keys():
+            meta['action_without_wrench'][:, :3] = meta['action_without_wrench'][:, :3] @ pose[:3, :3].T + pose[:3,3].reshape(1, 3)
+            meta['action_without_wrench'][:, 3:6] = meta['action_without_wrench'][:, 3:6] @ pose[:3, :3].T + pose[:3,3].reshape(1, 3)
+            meta['action_without_wrench'][:, 6:10] = Rot.from_matrix(pose[:3, :3] @ Rot.from_quat(meta['action_without_wrench'][:, 6:10]).as_matrix()).as_quat()
+            meta['action_without_wrench'][:, 10:14] = Rot.from_matrix(pose[:3, :3] @ Rot.from_quat(meta['action_without_wrench'][:, 10:14]).as_matrix()).as_quat()
 
         return meta
 
@@ -1083,6 +1143,11 @@ def action_stats_to_normalization_stats(action_stats, action_config):
             range_eps = 1e-4
             input_min = action_stats[action_key]["min"].astype(np.float32)
             input_max = action_stats[action_key]["max"].astype(np.float32)
+            # for pose augmentation
+            input_min[0, :6] -= np.array([0.15, 0.15, 0.15, 0.15, 0.15, 0.15])
+            input_max[0, :6] += np.array([0.15, 0.15, 0.15, 0.15, 0.15, 0.15])
+            input_min[0, 6:14] = -1*np.ones_like(input_min[0, 6:14])
+            input_max[0, 6:14] = 1 * np.ones_like(input_min[0, 6:14])
             # instead of -1 and 1 use numbers just below threshold to prevent numerical instability issues
             output_min = -0.999999
             output_max = 0.999999

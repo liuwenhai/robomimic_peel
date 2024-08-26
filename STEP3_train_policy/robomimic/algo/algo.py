@@ -225,7 +225,6 @@ class Algo(object):
 
         # ensure obs_normalization_stats are torch Tensors on proper device
         obs_normalization_stats = TensorUtils.to_float(TensorUtils.to_device(TensorUtils.to_tensor(obs_normalization_stats), self.device))
-
         obs_keys = ["obs", "next_obs", "goal_obs"]
         for k in obs_keys:
             if k in batch and batch[k] is not None:
@@ -527,3 +526,36 @@ class RolloutPolicy(object):
                     ac_dict[key] = rot
             ac = AcUtils.action_dict_to_vector(ac_dict, action_keys=action_keys)
         return ac
+
+    def get_all_action(self, ob, goal=None):
+        """
+        Produce action from raw observation dict (and maybe goal dict) from environment.
+
+        Args:
+            ob (dict): single observation dictionary from environment (no batch dimension,
+                and np.array values for each key)
+            goal (dict): goal observation
+        """
+        ob = self._prepare_observation(ob)
+        if goal is not None:
+            goal = self._prepare_observation(goal)
+        # ac = self.policy.get_action(obs_dict=ob, goal_dict=goal)
+        action_sequence = self.policy._get_action_trajectory(obs_dict=ob)[0]
+        action_result = []
+        for i, ac in enumerate(action_sequence):
+            ac = TensorUtils.to_numpy(ac)
+            if self.action_normalization_stats is not None:
+                action_keys = self.policy.global_config.train.action_keys
+                action_shapes = {k: self.action_normalization_stats[k]["offset"].shape[1:] for k in self.action_normalization_stats}
+                ac_dict = AcUtils.vector_to_action_dict(ac, action_shapes=action_shapes, action_keys=action_keys)
+                ac_dict = ObsUtils.unnormalize_dict(ac_dict, normalization_stats=self.action_normalization_stats)
+                action_config = self.policy.global_config.train.action_config
+                for key, value in ac_dict.items():
+                    this_format = action_config[key].get('format', None)
+                    if this_format == 'rot_6d':
+                        rot_6d = torch.from_numpy(value).unsqueeze(0)
+                        rot = TorchUtils.rot_6d_to_axis_angle(rot_6d=rot_6d).squeeze().numpy()
+                        ac_dict[key] = rot
+                ac = AcUtils.action_dict_to_vector(ac_dict, action_keys=action_keys)
+            action_result.append(ac)
+        return action_result

@@ -69,7 +69,7 @@ class DiffusionPolicyUNetDex(PolicyAlgo):
         obs_dim = obs_encoder.output_shape()[0]
 
         self.use_handnoise = True
-        if self.obs_shapes["robot0_eef_pos"][0] == 3: # single hand
+        if ("robot0_eef_pos" in self.obs_shapes.keys()) and self.obs_shapes["robot0_eef_pos"][0] == 3: # single hand
             self.arm_split = 3
             self.action_arm_dim = 7
         else: # bimanual hand
@@ -180,7 +180,6 @@ class DiffusionPolicyUNetDex(PolicyAlgo):
         input_batch["obs"] = {k: batch["obs"][k][:, :To, :] for k in batch["obs"]}
         input_batch["goal_obs"] = batch.get("goal_obs", None)  # goals may not be present
         input_batch["actions"] = batch["actions"][:, :Tp, :]
-
         # check if actions are normalized to [-1,1]
         if not self.action_check_done:
             actions = input_batch["actions"]
@@ -350,7 +349,8 @@ class DiffusionPolicyUNetDex(PolicyAlgo):
             action_sequence = self._get_action_trajectory(obs_dict=obs_dict)
 
             # put actions into the queue
-            self.action_queue.extend(action_sequence[0][3:13])
+            # self.action_queue.extend(action_sequence[0][3:13])
+            self.action_queue.extend(action_sequence[0])
 
         # has action, execute from left to right
         # [Da]
@@ -419,7 +419,9 @@ class DiffusionPolicyUNetDex(PolicyAlgo):
             ).prev_sample
 
         # process action using Ta
-        start = To - 1
+        # start = To - 1
+        start = To
+        Ta = 13
         end = start + Ta
         action = naction[:, start:end]
         return action
