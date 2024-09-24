@@ -434,7 +434,12 @@ class SequenceDataset(torch.utils.data.Dataset):
         demo_id = self._index_to_demo_id[index]
         demo_start_index = self._demo_id_to_start_indices[demo_id]
         demo_length = self._demo_id_to_demo_length[demo_id]
-
+        # avoiding padding
+        # if index + self.seq_length > demo_start_index + demo_length:
+        #     offset = index + self.seq_length - (demo_start_index + demo_length)
+        #     offset = np.random.randint(offset, offset+demo_length-self.seq_length)
+        #     index -= offset
+        # import pdb;pdb.set_trace()
         # start at offset index if not padding for frame stacking
         demo_index_offset = 0 if self.pad_frame_stack else (self.n_frame_stack - 1)
         index_in_demo = index - demo_start_index + demo_index_offset
@@ -514,7 +519,7 @@ class SequenceDataset(torch.utils.data.Dataset):
 
         return meta
 
-    def _random_pose(self, x_min=-0.05, x_max=0.05, y_min=-0.04, y_max=0.04, z_min=-0.04, z_max=0.05, z_theta_min=-np.pi / 4,z_theta_max=np.pi / 4):
+    def _random_pose(self, x_min=-0.05, x_max=0.05, y_min=-0.04, y_max=0.04, z_min=-0.04, z_max=0.05, z_theta_min=-np.pi / 3,z_theta_max=np.pi / 3):
         from scipy.spatial.transform import Rotation as Rot
         x_trans = np.random.uniform(x_min, x_max)
         y_trans = np.random.uniform(y_min, y_max)
@@ -544,27 +549,40 @@ class SequenceDataset(torch.utils.data.Dataset):
         '''
         from scipy.spatial.transform import Rotation as Rot
         pose = self._random_pose()
-
+        # import pdb;pdb.set_trace()
         if 'robot0_eef_pos' in meta['obs'].keys():
             meta['obs']['robot0_eef_pos'][:,:3] = meta['obs']['robot0_eef_pos'][:,:3] @ pose[:3,:3].T + pose[:3,3].reshape(1,3)
-            meta['obs']['robot0_eef_pos'][:,3:] = meta['obs']['robot0_eef_pos'][:,3:] @ pose[:3,:3].T + pose[:3,3].reshape(1,3)
+            if meta['obs']['robot0_eef_pos'].shape[1]>3:
+                meta['obs']['robot0_eef_pos'][:,3:] = meta['obs']['robot0_eef_pos'][:,3:] @ pose[:3,:3].T + pose[:3,3].reshape(1,3)
         if 'robot0_eef_quat' in meta['obs'].keys():
             meta['obs']['robot0_eef_quat'][:,:4] = Rot.from_matrix(pose[:3,:3] @ Rot.from_quat(meta['obs']['robot0_eef_quat'][:,:4]).as_matrix()).as_quat()
-            meta['obs']['robot0_eef_quat'][:,4:] = Rot.from_matrix(pose[:3,:3] @ Rot.from_quat(meta['obs']['robot0_eef_quat'][:,4:]).as_matrix()).as_quat()
-        if 'pointcloud' in meta['obs'].keys():
-            meta['obs']['pointcloud'][:,:,:3] = meta['obs']['pointcloud'][:,:,:3] @ pose[:3,:3].T + pose[:3,3].reshape(1,3)
+            if meta['obs']['robot0_eef_quat'].shape[1]>4:
+                meta['obs']['robot0_eef_quat'][:,4:] = Rot.from_matrix(pose[:3,:3] @ Rot.from_quat(meta['obs']['robot0_eef_quat'][:,4:]).as_matrix()).as_quat()
+        # if 'pointcloud' in meta['obs'].keys():
+            # meta['obs']['pointcloud'][:,:,:3] = meta['obs']['pointcloud'][:,:,:3] @ pose[:3,:3].T + pose[:3,3].reshape(1,3)
+        for key in meta['obs']:
+            if 'pointcloud' in key:
+                meta['obs'][key][:, :, :3] = meta['obs'][key][:, :, :3] @ pose[:3, :3].T + pose[:3,3].reshape(1, 3)
+        # import pdb;pdb.set_trace()
 
         if 'action_with_wrench' in meta.keys():
-            meta['action_with_wrench'][:,:3] = meta['action_with_wrench'][:,:3] @ pose[:3,:3].T + pose[:3,3].reshape(1,3)
-            meta['action_with_wrench'][:,3:6] = meta['action_with_wrench'][:,3:6] @ pose[:3,:3].T + pose[:3,3].reshape(1,3)
-            meta['action_with_wrench'][:,6:10] = Rot.from_matrix(pose[:3,:3] @ Rot.from_quat(meta['action_with_wrench'][:,6:10]).as_matrix()).as_quat()
-            meta['action_with_wrench'][:, 10:14] = Rot.from_matrix(pose[:3, :3] @ Rot.from_quat(meta['action_with_wrench'][:, 10:14]).as_matrix()).as_quat()
+            if meta['action_with_wrench'].shape[1] > 14: # bimanull
+                meta['action_with_wrench'][:,:3] = meta['action_with_wrench'][:,:3] @ pose[:3,:3].T + pose[:3,3].reshape(1,3)
+                meta['action_with_wrench'][:,3:6] = meta['action_with_wrench'][:,3:6] @ pose[:3,:3].T + pose[:3,3].reshape(1,3)
+                meta['action_with_wrench'][:,6:10] = Rot.from_matrix(pose[:3,:3] @ Rot.from_quat(meta['action_with_wrench'][:,6:10]).as_matrix()).as_quat()
+                meta['action_with_wrench'][:, 10:14] = Rot.from_matrix(pose[:3, :3] @ Rot.from_quat(meta['action_with_wrench'][:, 10:14]).as_matrix()).as_quat()
+            else:
+                meta['action_with_wrench'][:, :3] = meta['action_with_wrench'][:, :3] @ pose[:3, :3].T + pose[:3,3].reshape(1,3)
+                meta['action_with_wrench'][:, 3:7] = Rot.from_matrix(pose[:3, :3] @ Rot.from_quat(meta['action_with_wrench'][:, 3:7]).as_matrix()).as_quat()
         if 'action_without_wrench' in meta.keys():
-            meta['action_without_wrench'][:, :3] = meta['action_without_wrench'][:, :3] @ pose[:3, :3].T + pose[:3,3].reshape(1, 3)
-            meta['action_without_wrench'][:, 3:6] = meta['action_without_wrench'][:, 3:6] @ pose[:3, :3].T + pose[:3,3].reshape(1, 3)
-            meta['action_without_wrench'][:, 6:10] = Rot.from_matrix(pose[:3, :3] @ Rot.from_quat(meta['action_without_wrench'][:, 6:10]).as_matrix()).as_quat()
-            meta['action_without_wrench'][:, 10:14] = Rot.from_matrix(pose[:3, :3] @ Rot.from_quat(meta['action_without_wrench'][:, 10:14]).as_matrix()).as_quat()
-
+            if meta['action_without_wrench'].shape[1] > 14: # bimanull
+                meta['action_without_wrench'][:, :3] = meta['action_without_wrench'][:, :3] @ pose[:3, :3].T + pose[:3,3].reshape(1, 3)
+                meta['action_without_wrench'][:, 3:6] = meta['action_without_wrench'][:, 3:6] @ pose[:3, :3].T + pose[:3,3].reshape(1, 3)
+                meta['action_without_wrench'][:, 6:10] = Rot.from_matrix(pose[:3, :3] @ Rot.from_quat(meta['action_without_wrench'][:, 6:10]).as_matrix()).as_quat()
+                meta['action_without_wrench'][:, 10:14] = Rot.from_matrix(pose[:3, :3] @ Rot.from_quat(meta['action_without_wrench'][:, 10:14]).as_matrix()).as_quat()
+            else:
+                meta['action_without_wrench'][:, :3] = meta['action_without_wrench'][:, :3] @ pose[:3, :3].T + pose[:3,3].reshape(1, 3)
+                meta['action_without_wrench'][:, 3:7] = Rot.from_matrix(pose[:3, :3] @ Rot.from_quat(meta['action_without_wrench'][:, 3:7]).as_matrix()).as_quat()
         return meta
 
     def get_sequence_from_demo(self, demo_id, index_in_demo, keys, num_frames_to_stack=0, seq_length=1):
@@ -594,7 +612,9 @@ class SequenceDataset(torch.utils.data.Dataset):
         # determine sequence padding
         seq_begin_pad = max(0, num_frames_to_stack - index_in_demo)  # pad for frame stacking
         seq_end_pad = max(0, index_in_demo + seq_length - demo_length)  # pad for sequence length
-
+        # print([seq_begin_pad, seq_end_pad])
+        # if seq_begin_pad>0 or seq_end_pad>0:
+        #     import pdb;pdb.set_trace()
         # make sure we are not padding if specified.
         if not self.pad_frame_stack:
             assert seq_begin_pad == 0
@@ -1143,11 +1163,18 @@ def action_stats_to_normalization_stats(action_stats, action_config):
             range_eps = 1e-4
             input_min = action_stats[action_key]["min"].astype(np.float32)
             input_max = action_stats[action_key]["max"].astype(np.float32)
-            # for pose augmentation
-            input_min[0, :6] -= np.array([0.15, 0.15, 0.15, 0.15, 0.15, 0.15])
-            input_max[0, :6] += np.array([0.15, 0.15, 0.15, 0.15, 0.15, 0.15])
-            input_min[0, 6:14] = -1*np.ones_like(input_min[0, 6:14])
-            input_max[0, 6:14] = 1 * np.ones_like(input_min[0, 6:14])
+            # import pdb;pdb.set_trace()
+            if input_min.shape[1]>14: # bimanul
+                # for pose augmentation
+                input_min[0, :6] -= np.array([0.20, 0.20, 0.15, 0.20, 0.20, 0.15])
+                input_max[0, :6] += np.array([0.20, 0.20, 0.15, 0.20, 0.20, 0.15])
+                input_min[0, 6:14] = -1*np.ones_like(input_min[0, 6:14])
+                input_max[0, 6:14] = 1 * np.ones_like(input_min[0, 6:14])
+            else:
+                input_min[0, :3] -= np.array([0.2, 0.3, 0.15])
+                input_max[0, :3] += np.array([0.2, 0.4, 0.2])
+                input_min[0, 3:7] = -1 * np.ones_like(input_min[0, 3:7])
+                input_max[0, 3:7] = 1 * np.ones_like(input_min[0, 3:7])
             # instead of -1 and 1 use numbers just below threshold to prevent numerical instability issues
             output_min = -0.999999
             output_max = 0.999999
@@ -1173,7 +1200,6 @@ def action_stats_to_normalization_stats(action_stats, action_config):
             offset = input_min - scale * output_min
 
             offset[ignore_dim] = input_min[ignore_dim] - (output_max + output_min) / 2
-
             action_normalization_stats[action_key] = {
                 "scale": scale,
                 "offset": offset
