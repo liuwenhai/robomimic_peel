@@ -68,7 +68,7 @@ class DiffusionPolicyUNetDex(PolicyAlgo):
 
         obs_dim = obs_encoder.output_shape()[0]
 
-        self.use_handnoise = True
+        self.use_handnoise = False
         if ("robot0_eef_pos" in self.obs_shapes.keys()) and self.obs_shapes["robot0_eef_pos"][0] == 3: # single hand
             self.arm_split = 3
             self.action_arm_dim = 7

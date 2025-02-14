@@ -29,7 +29,7 @@ def run_trained_agent(model_path):
     config, _ = FileUtils.config_from_checkpoint(ckpt_dict=ckpt_dict)
     context = zmq.Context()
     socket = context.socket(zmq.REP)
-    socket.bind("tcp://*:12345")
+    socket.bind("tcp://*:12388")
     while True:
         print('========================       wating for obs data...       ========================')
         data_json = socket.recv_string()
@@ -78,6 +78,22 @@ if __name__ == "__main__":
     model_path = 'trained_models/dp_w_action_wrench_w_robot_cucumber_peel_0-9/20240823235554/models/model_epoch_100.pth'
     model_path = 'trained_models/dp_w_action_wrench_wo_robot_cucumber_peel_0-9/20240823235508/models/model_epoch_200.pth'
     model_path='/home/wenhai/pub_repo/robotlearning/DexCap/STEP3_train_policy/robomimic/trained_models/dp_w_action_wrench_wo_robot_cucumber_peel_0-9/20240823235508/models/model_epoch_200.pth'
+    model_path = 'trained_models/dp_w_action_wrench_wo_robot_cucumber_peel_0-9_gf/20240827191216/models/model_epoch_300.pth'
+    model_path = 'trained_models/dp_w_action_wrench_wo_robot_cucumber_peel_0-9/20240823235508/models/model_epoch_600.pth'
+    model_path = 'trained_models/dp_w_action_wrench_wo_robot_cucumber_peel_0-9_gf_1obs/20240827191433/models/model_epoch_300.pth'
+    model_path = 'trained_models/dp_w_action_wrench_w_robot_cocozelle_peel_all/20240904215235/models/model_epoch_500.pth'
+    # model_path = 'trained_models/dp_w_action_wrench_w_robot_1ob_cocozelle_peel_all/20240904220354/models/model_epoch_500.pth'
+    # model_path = 'trained_models/dp_w_action_wrench_w_robot_1ob_cocozelle_peel_grasp/20240907000420/models/model_epoch_300.pth'
+    # model_path = 'trained_models/dp_w_action_wrench_w_robot_1ob_cocozelle_peel_turn/20240907000456/models/model_epoch_100.pth'
+    model_path = 'trained_models/dp_ft_w_a_wrench_w_state_1ob_all_shave/20240909202327/models/model_epoch_100.pth'
+    # model_path = 'trained_models/dp_ft_w_a_wrench_w_state_1ob_cucu_shave/20240909202143/models/model_epoch_100.pth'
+    # model_path = 'trained_models/dp_ft_w_wrench_w_state_1ob_coco_shave/20240909202556/models/model_epoch_300.pth'
+    # model_path = 'trained_models/dp_ft_w_a_wrench_w_state_1ob_cucu_shave/20240909202143/models/model_epoch_100.pth'
+    # model_path = 'trained_models/dp_ft_w_a_wrench_wo_state_1ob_coco_shave/20240909202442/models/model_epoch_300.pth'
+    model_path = 'trained_models/dp_ft_w_a_wrench_w_state_1ob_coco_shave/20240909201936/models/model_epoch_500.pth'
+    # model_path = 'trained_models/dp_ft_wo_wrench_w_state_1ob_coco_shave/20240909202651/models/model_epoch_300.pth'
+    # model_path = 'trained_models/deprecated/dp_w_action_wrench_w_robot_cocozelle_peel_all/20240904215235/models/model_epoch_300.pth'
+    run_trained_agent(model_path)
     try:
         run_trained_agent(model_path)
     except Exception as e:

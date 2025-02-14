@@ -654,7 +654,7 @@ def run_epoch(model, data_loader, epoch, validate=False, num_steps=None, obs_nor
         model.set_train()
     if num_steps is None:
         num_steps = len(data_loader)
-
+    num_steps = len(data_loader) if len(data_loader) > num_steps else num_steps
     step_log_all = []
     timing_stats = dict(Data_Loading=[], Process_Batch=[], Train_Batch=[], Log_Info=[])
     start_time = time.time()
